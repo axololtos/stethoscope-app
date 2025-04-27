@@ -26,14 +26,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    
-    aaptOptions {
-        noCompress "tflite"
-    }
-    
-    buildFeatures {
-        mlModelBinding true
-    }
 }
 
 dependencies {
@@ -46,9 +38,11 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
     // TensorFlow Lite
-    implementation 'org.tensorflow:tensorflow-lite:2.11.0'
+    implementation 'org.tensorflow:tensorflow-lite:+'
 
-    // Librosa equivalent (using JLibrosa for MFCC)
-    implementation 'net.sf.jlibrosa:jlibrosa:1.5'
-    
+    // Librosa (or equivalent) - Replace with an Android-compatible library for MFCC
+    // You might need to find an alternative library or implement MFCC manually
+    // If an equivalent is found, add it here. For example:
+    // implementation 'com.your.library:librosa-android:1.0.0'
+    implementation 'com.arthenica:mobile-ffmpeg-full:4.4.LTS'
 }

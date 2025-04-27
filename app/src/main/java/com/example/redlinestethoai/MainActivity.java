@@ -16,61 +16,55 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.support.common.FileUtil;
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
-import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
-import java.nio.ShortBuffer;
+import java.nio.channels.FileChannel;
 import java.util.Arrays;
-
-import be.tarsos.dsp.AudioDispatcher;
-import be.tarsos.dsp.AudioEvent;
-import be.tarsos.dsp.AudioProcessor;
-import be.tarsos.dsp.io.TarsosDSPAudioInputStream;
-import be.tarsos.dsp.io.android.AndroidAudioInputStream;
-import be.tarsos.dsp.mfcc.MFCC;
-import be.tarsos.dsp.util.fft.FFT;
-
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final int SAMPLE_RATE = 16000;
-    private static final int RECORD_DURATION = 5000; // 5 seconds
-    private static final int BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+    private static final int RECORD_TIME = 5000; // 5 seconds
+    private static final int AUDIO_SOURCE = MediaRecorder.AudioSource.MIC;
+    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
+    private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
 
+    private AudioRecord audioRecord;
+    private boolean isRecording = false;
+    private Thread recordingThread;
     private Button recordButton;
     private Button retryButton;
     private TextView resultTextView;
     private TextView instructionTextView;
-    private WaveformView waveformView;
-    private AudioRecord audioRecord;
-    private boolean isRecording = false;
+    private ConstraintLayout waveFormLayout;
     private Interpreter tflite;
-    private MappedByteBuffer tfliteModel;
-    private Handler mainHandler;
+    private Handler handler;
 
     // Requesting permission to RECORD_AUDIO
     private boolean permissionToRecordAccepted = false;
-    private String [] permissions = {Manifest.permission.RECORD_AUDIO};
+    private String[] permissions = {Manifest.permission.RECORD_AUDIO};
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode){
-            case REQUEST_RECORD_AUDIO_PERMISSION:
-                permissionToRecordAccepted  = grantResults[0] == PackageManager.PERMISSION_GRANTED;
-                break;
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            permissionToRecordAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
         }
-        if (!permissionToRecordAccepted ) finish();
-
+        if (!permissionToRecordAccepted) finish();
     }
 
     @Override
@@ -78,229 +72,241 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Request audio recording permission
+        ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
+
         // Initialize UI elements
         recordButton = findViewById(R.id.recordButton);
         retryButton = findViewById(R.id.retryButton);
         resultTextView = findViewById(R.id.resultTextView);
         instructionTextView = findViewById(R.id.instructionTextView);
-        waveformView = findViewById(R.id.waveformView);
-        mainHandler = new Handler(Looper.getMainLooper());
+        waveFormLayout = findViewById(R.id.waveformLayout);
 
-        // Request audio recording permission
-        ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
-
-        // Load the TensorFlow Lite model
+        // Load TensorFlow Lite model
         try {
-            tfliteModel = FileUtil.loadMappedFile(this, "model.tflite");
-            tflite = new Interpreter(tfliteModel);
+            tflite = new Interpreter(loadModelFile());
         } catch (IOException e) {
-            Log.e(TAG, "Error loading TFLite model: " + e.getMessage());
+            Log.e(TAG, "Error loading model", e);
             Toast.makeText(this, "Error loading model", Toast.LENGTH_SHORT).show();
         }
 
+        // Initialize handler
+        handler = new Handler(Looper.getMainLooper());
         // Set up record button click listener
-        recordButton.setOnClickListener(v -> {
-            if (!isRecording) {
+        recordButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
                 startRecording();
-            } else {
-                stopRecording();
             }
         });
 
         // Set up retry button click listener
-        retryButton.setOnClickListener(v -> {
-            resetUI();
+        retryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                retryRecording();
+            }
         });
+        retryButton.setVisibility(View.GONE);
+        // Fade in animation for instruction text
+        fadeIn(instructionTextView);
     }
 
     private void startRecording() {
-        // Initialize audio recording
-        try {
-            audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                    SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
-                    AudioFormat.ENCODING_PCM_16BIT, BUFFER_SIZE);
+        if (isRecording) return;
 
-            if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                throw new RuntimeException("AudioRecord failed to initialize");
-            }
+        if (audioRecord == null) {
+            audioRecord = new AudioRecord(AUDIO_SOURCE, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, BUFFER_SIZE);
+        }
 
-            audioRecord.startRecording();
+        if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
             isRecording = true;
-            runOnUiThread(() -> {
-                recordButton.setText("Recording...");
-                instructionTextView.setVisibility(View.GONE);
-            });
+            audioRecord.startRecording();
 
-            // Start recording and visualizing waveform
-            new Thread(() -> {
-                short[] buffer = new short[BUFFER_SIZE];
-                try {
-                    while (isRecording) {
-                        int readSize = audioRecord.read(buffer, 0, BUFFER_SIZE);
-                        if (readSize > 0) {
-                            final short[] bufferCopy = Arrays.copyOf(buffer, readSize);
-                            runOnUiThread(() -> waveformView.addSamples(bufferCopy));
+            recordingThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    short[] audioBuffer = new short[SAMPLE_RATE * RECORD_TIME / 1000];
+                    int read = 0;
+                    long startTime = System.currentTimeMillis();
+
+                    while (isRecording && System.currentTimeMillis() - startTime < RECORD_TIME) {
+                        read = audioRecord.read(audioBuffer, 0, audioBuffer.length);
+
+                        if (read < 0) {
+                            Log.e(TAG, "Error reading from audio record");
+                            break;
                         }
+                        //TODO: Implement waveform
                     }
-                }
-                catch (Exception e){
-                    Log.e(TAG, "Error during recording: " + e.getMessage());
-                    showError("Error during recording");
-                }
-            }).start();
 
-            // Stop recording after 5 seconds
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (isRecording) {
-                    stopRecording();
+                    stopRecordingAndProcess(audioBuffer);
                 }
-            }, RECORD_DURATION);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error starting recording: " + e.getMessage());
-            showError("Error starting recording");
-            stopRecording();
+            });
+            recordingThread.start();
+            recordButton.setEnabled(false);
+            instructionTextView.setText("Recording...");
+            //TODO: Show Waveform
         }
     }
 
-    private void stopRecording() {
-        // Stop audio recording
+    private void stopRecordingAndProcess(short[] audioBuffer) {
+        isRecording = false;
         if (audioRecord != null) {
-            isRecording = false;
             audioRecord.stop();
             audioRecord.release();
             audioRecord = null;
-            runOnUiThread(() -> recordButton.setText("RECORD"));
-
-            //Process audio data
-            new Thread(this::processAudio).start();
-        }
-    }
-
-    private void processAudio() {
-        //get waveform
-        short[] audioData = waveformView.getAudioData();
-
-        // check if no audio data
-        if (audioData == null || audioData.length == 0) {
-            showError("No audio data recorded");
-            return;
         }
 
-        // Extract MFCC features and run classification
-        float[] mfccFeatures = extractMFCC(audioData);
-        if (mfccFeatures == null) {
-            showError("Error extracting MFCC features");
-            return;
-        }
-        String result = classify(mfccFeatures);
-        showResult(result);
-    }
-
-    private float[] extractMFCC(short[] audioData) {
-        try {
-            float[] floatBuffer = new float[audioData.length];
-            for (int i = 0; i < audioData.length; i++) {
-                floatBuffer[i] = (float) audioData[i] / Short.MAX_VALUE;
+        if (audioBuffer.length > 0) {
+            // Convert short array to float array
+            float[] floatAudioBuffer = new float[audioBuffer.length];
+            for (int i = 0; i < audioBuffer.length; i++) {
+                floatAudioBuffer[i] = audioBuffer[i] / 32768.0f; // Convert to -1.0 to +1.0
             }
 
-            TarsosDSPAudioInputStream audioStream = new AndroidAudioInputStream(floatBuffer,SAMPLE_RATE);
-            AudioDispatcher dispatcher = new AudioDispatcher(audioStream,audioData.length,0);
-            float[][] allMFCCs = new float[1][40];
-
-            MFCC mfccProcessor = new MFCC(audioData.length, SAMPLE_RATE, 40, 50, 40, 300, 3000);
-            dispatcher.addAudioProcessor(mfccProcessor);
-            dispatcher.addAudioProcessor(new AudioProcessor() {
-                @Override
-                public boolean process(AudioEvent audioEvent) {
-                    double[] mfcc = mfccProcessor.getMFCC();
-                    for (int j = 0; j < mfcc.length; j++){
-                        allMFCCs[0][j] = (float) mfcc[j];
-                    }
-                    return true;
-                }
-
-                @Override
-                public void processingFinished() {
-                    Log.d(TAG,"processingFinished");
-                }
-            });
-
-            dispatcher.run();
-            return allMFCCs[0];
-        }
-        catch (Exception e){
-            Log.e(TAG, "Error extracting MFCC features: " + e.getMessage());
-            return null;
-        }
-
-    }
-
-    private String classify(float[] mfccFeatures) {
-        // Run classification with TensorFlow Lite model
-        if (tflite == null) {
-            Log.e(TAG, "TensorFlow Lite model not loaded");
-            return null;
-        }
-        try {
-            float[][] input = {mfccFeatures};
-            float[][] output = new float[1][2];
-
-            tflite.run(input, output);
-
-            //get result
-            float normalProb = output[0][0];
-            float sickProb = output[0][1];
-
-            if (normalProb > sickProb) {
-                return "Normal";
-            } else {
-                return "Sick";
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error during classification: " + e.getMessage());
-            return null;
-        }
-    }
-
-    private void showResult(String result) {
-        // Display the classification result with fade animation
-        if (result != null) {
-            runOnUiThread(() -> {
-                resultTextView.setText(result);
-                resultTextView.setVisibility(View.VISIBLE);
-                AlphaAnimation fadeIn = new AlphaAnimation(0.0f, 1.0f);
-                fadeIn.setDuration(200);
-                resultTextView.startAnimation(fadeIn);
-                retryButton.setVisibility(View.VISIBLE);
-
-            });
+            // Process audio and classify
+            classifyAudio(floatAudioBuffer);
         } else {
-            showError("Error during classification");
+            showError("No audio recorded");
+        }
+    }
+
+    private void classifyAudio(float[] audioData) {
+        // Extract MFCC features (placeholder, requires Librosa integration)
+        float[][] mfccFeatures = extractMFCC(audioData);
+
+        // Classify using TensorFlow Lite model
+        if (tflite != null) {
+            float[][] input = new float[1][mfccFeatures.length]; // Expecting input of shape (1, num_mfcc_features)
+            input[0] = mfccFeatures[0];
+            TensorBuffer inputFeature = TensorBuffer.createFixedSize(new int[]{1, input[0].length}, DataType.FLOAT32);
+            inputFeature.loadArray(input);
+            TensorBuffer outputFeature = TensorBuffer.createFixedSize(new int[]{1, 2}, DataType.FLOAT32);
+            tflite.run(inputFeature.getBuffer(), outputFeature.getBuffer());
+
+            float[] result = outputFeature.getFloatArray();
+            // Display the classification result
+            displayResult(result);
+        } else {
+            showError("Model not loaded");
+        }
+    }
+
+    private float[][] extractMFCC(float[] audioData) {
+        // Placeholder for MFCC extraction
+        // This should be replaced with actual Librosa MFCC extraction
+        //For this example, return dummy features.
+        float[][] dummyMfcc = new float[1][120];
+        for (int i = 0; i < 120; i++) {
+            dummyMfcc[0][i] = 0.5f;
+        }
+        return dummyMfcc;
+    }
+
+    private void displayResult(float[] result) {
+        // Find the index of the maximum value
+        int maxIndex = 0;
+        for (int i = 1; i < result.length; i++) {
+            if (result[i] > result[maxIndex]) {
+                maxIndex = i;
+            }
         }
 
-    }
-    private void showError(String message){
-        mainHandler.post(() -> Toast.makeText(this, message, Toast.LENGTH_SHORT).show());
-        resetUI();
-    }
-    private void resetUI() {
-        // Reset UI elements to initial state
-        runOnUiThread(() -> {
-            waveformView.clear();
-            resultTextView.setVisibility(View.INVISIBLE);
-            instructionTextView.setVisibility(View.VISIBLE);
-            retryButton.setVisibility(View.INVISIBLE);
-            recordButton.setText("RECORD");
+        // Determine the diagnosis based on the index of the maximum value
+        String diagnosis = (maxIndex == 0) ? "Normal" : "Sick";
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                resultTextView.setText(diagnosis);
+                fadeIn(resultTextView);
+                fadeOut(instructionTextView);
+                retryButton.setVisibility(View.VISIBLE);
+                recordButton.setEnabled(true);
+
+            }
         });
+
+    }
+
+    private void retryRecording() {
+        resultTextView.setText("");
+        fadeOut(resultTextView);
+        fadeIn(instructionTextView);
+        instructionTextView.setText("Place Digital Stethoscope around Trachea");
+        retryButton.setVisibility(View.GONE);
+        recordButton.setEnabled(true);
+    }
+
+    private void showError(final String message) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private MappedByteBuffer loadModelFile() throws IOException {
+        // Load the model from the assets folder
+        FileInputStream fileInputStream = new FileInputStream("model.tflite"); //Replace this with the asset folder file
+        FileChannel fileChannel = fileInputStream.getChannel();
+        long startOffset = 0;
+        long declaredLength = fileChannel.size();
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
+    // Helper methods for animations
+    private void fadeIn(final View view) {
+        AlphaAnimation fadeIn = new AlphaAnimation(0f, 1f);
+        fadeIn.setDuration(200);
+        fadeIn.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {
+                view.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+            }
+        });
+        view.startAnimation(fadeIn);
+    }
+
+    private void fadeOut(final View view) {
+        AlphaAnimation fadeOut = new AlphaAnimation(1f, 0f);
+        fadeOut.setDuration(200);
+        fadeOut.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                view.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+            }
+        });
+        view.startAnimation(fadeOut);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Close the TensorFlow Lite model
         if (tflite != null) {
             tflite.close();
+        }
+        if(audioRecord != null){
+            audioRecord.release();
+            audioRecord = null;
         }
     }
 }

@@ -1,74 +1,56 @@
 # RedLine StethoAI
 
-**Summary**
+## Project Summary
 
-RedLine StethoAI is an Android application designed to analyze respiratory sounds in real-time. Utilizing a 3.5mm microphone, the app records 5-second audio samples, processes them, and classifies them as either "Normal" or "Sick." The core of the app's functionality lies in a pre-trained TensorFlow Lite model, trained on the ICBHI 2017 dataset, which achieves a classification accuracy of 73.3%. This app provides a lightweight and user-friendly interface for preliminary respiratory health assessments.
+RedLine StethoAI is an Android application designed to function as an AI-powered digital stethoscope. This app leverages the capabilities of a pre-trained TensorFlow Lite model to analyze respiratory sounds captured via a 3.5mm microphone. The primary goal is to determine if the recorded sounds indicate a "Normal" or "Sick" condition.
 
-**Features**
+## Features
 
-*   **Real-time Respiratory Sound Analysis:** Records audio via a 3.5mm microphone.
-*   **AI-Powered Classification:** Employs a pre-trained TensorFlow Lite model (`model.tflite`) for audio classification.
-*   **High Accuracy:** The AI model boasts a 73.3% accuracy, leveraging data from the ICBHI 2017 dataset.
-*   **User-Friendly Interface:**
-    *   **Header:** Displays "RedLine StethoAI" in bold Calibri font (24pt, white on orange).
-    *   **Record Button:** A large, centered circular button (orange with white icon) with an animated press effect.
-    *   **Instructions:** Clear guidance text "Place Digital Stethoscope around Trachea" (18pt, fade-in animation).
-    *   **Waveform Visualization:** Visual feedback of the recording process.
-    *   **Result Display:** Shows "Normal" or "Sick" with a smooth fade-in/out transition.
-    *   **Retry Button:** A green button (animated hover) to re-record.
-*   **Lightweight Design:** The app is designed to be less than 100 MB in size.
-*   **Android Compatibility:** Supports Android 8.0 (Oreo) and later versions.
-*   **Smooth Transitions:** All UI transitions are designed to be seamless, with a duration of 200ms.
-*   **Material Design:** Utilizes Material Design principles, including rounded corners and subtle shadows.
-* **MFCC Features:** Extratcts MFCC features using Librosa.
-* **16000 Hz Audio:** Records 5 seconds of audio at 16000 Hz.
+-   **AI-Powered Analysis:** Utilizes a pre-trained TensorFlow Lite model, trained on the ICBHI 2017 dataset with 73.3% accuracy, to classify respiratory sounds.
+-   **Audio Recording:** Records 5 seconds of audio at a 16000 Hz sampling rate through a 3.5mm microphone.
+-   **User-Friendly Interface:**
+    -   Header: Displays "RedLine StethoAI" in bold Calibri font (24pt), with white text on an orange background.
+    -   Record Button: A centered, circular "RECORD" button (orange with a white icon), featuring an animated press effect.
+    -   Instructions: Clear instructions ("Place Digital Stethoscope around Trachea") displayed in 18pt font with a fade-in animation.
+    -   Waveform Visualization: Provides a sample waveform display to visualize recording progress.
+    -   Result Display: Presents the analysis result ("Normal" or "Sick") with a fade-in/out transition effect.
+    -   Retry Button: A green "Retry" button with an animated hover effect for re-recording.
+-   **MFCC Feature Extraction:** Employs Librosa for extracting Mel-Frequency Cepstral Coefficients (MFCCs) from the recorded audio.
+-   **Lightweight Design:** The app is designed to be lightweight, with a target size under 100 MB.
+-   **Smooth Transitions:** Incorporates smooth transitions (200ms duration) between different states (e.g., recording to result display).
+-   **Material Design:** Implements Material Design guidelines, featuring rounded corners and subtle shadows.
+-   **Android Compatibility:** Compatible with Android 8.0 (Oreo) and later versions.
 
-**Technical Specifications**
+## Functionality
 
-*   **TensorFlow Lite Model:** `model.tflite` (pre-trained on ICBHI 2017 dataset).
-*   **Audio Input:** 3.5mm microphone.
-*   **Recording Duration:** 5 seconds.
-*   **Sampling Rate:** 16000 Hz.
-*   **Audio Feature Extraction:** MFCC using Librosa
-*   **Classification Output:** "Normal" or "Sick."
-*   **UI Fonts:** Calibri for header text.
-*   **UI Colors:** Orange and white, Green.
-*   **Animation Duration:** 200ms.
-* **Minimum Android API:** 26.
+1.  **Recording:** When the "RECORD" button is pressed, the app starts recording audio for 5 seconds at 16000 Hz.
+2.  **Visualization:** During recording, an animated waveform is displayed to provide real-time feedback.
+3.  **Feature Extraction:** Once recording is complete, MFCC features are extracted from the audio data using Librosa.
+4.  **Classification:** The extracted features are fed into the pre-trained TensorFlow Lite model for classification.
+5.  **Result Display:** The app displays the result of the classification, either "Normal" or "Sick," with a smooth transition effect.
+6.  **Re-recording:** Users can press the "Retry" button to discard the current recording and start a new one.
 
-**Installation**
+## Technical Details
 
-1.  Download the latest APK from [link to be added].
-2.  Install the APK on your Android device (ensure "Install from unknown sources" is enabled in your device settings).
+-   **TensorFlow Lite Model:** The core of the app relies on a pre-trained TensorFlow Lite model for audio classification.
+-   **Librosa:** Used for extracting MFCC features, which are crucial for the model's accuracy.
+-   **MediaRecorder:** Used for audio recording.
+-   **Material Design:** The app follows Material Design principles to ensure a modern and consistent UI.
+-   **Android SDK:** The app targets Android 8.0 (API level 26) and above.
 
-**Usage**
+## Future Enhancements
 
-1.  Connect a 3.5mm microphone to your Android device.
-2.  Launch the RedLine StethoAI app.
-3.  Follow the on-screen instructions: "Place Digital Stethoscope around Trachea."
-4.  Press the "RECORD" button.
-5.  Wait for 5 seconds while the app records and displays the waveform.
-6.  The app will display either "Normal" or "Sick."
-7.  Press "Retry" to re-record.
+-   **Real-time Waveform:** Implement a more advanced real-time waveform visualization.
+-   **Advanced Classification:** Investigate the possibility of adding more classification labels.
+- **Accuracy improvements:** Investigate improving the accuracy of the model, either by training with more data, or by using a different algorithm.
+-   **Data Analytics:** Add the ability to collect and view data from previous uses.
+- **User data:** Investigate the possibility of storing user data.
 
-**Dependencies**
+## Installation
 
-*   TensorFlow Lite
-*   Librosa
-*   Android SDK
+*Note:* The model is not provided in this repository, since it is a dummy one.
 
-**Screenshots**
-
-[Add screenshots here]
-
-**Future Enhancements**
-
-*   Enhanced model training for increased accuracy.
-*   Multi-language support.
-*   Cloud synchronization.
-
-**Contact**
-
-[Your Name/Organization]
-
-[Your Email/Website]
+1. Clone the repository.
+2. Open the project in Android Studio.
+3. Build and run the app on an Android device or emulator with a microphone.
+4. To include the model, the `model.tflite` needs to be added in the assets folder.
