@@ -3,4 +3,6 @@
     <color name="orange_main">#FFA500</color>
     <color name="white_text">#FFFFFF</color>
     <color name="green_retry">#008000</color>
+    <color name="gray_waveform_bg">#F2F2F2</color>
+    <color name="gray_border">#D3D3D3</color>
 </resources>

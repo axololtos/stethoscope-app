@@ -1,75 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/white" tools:context=".MainActivity">
 
+    <!-- Header -->
     <LinearLayout
         android:id="@+id/headerLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/orange"
-        android:orientation="vertical"
-        android:padding="16dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@color/orange" android:orientation="vertical"
+        android:padding="16dp" app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/appNameTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="sans-serif"
-            android:text="RedLine StethoAI"
-            android:textAlignment="center"
-            android:textColor="@color/white"
-            android:textSize="24sp"
+        <TextView android:id="@+id/appNameTextView" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:fontFamily="Calibri"
+            android:text="RedLine StethoAI" android:textAlignment="center"
+            android:textColor="@color/white" android:textSize="24sp"
             android:textStyle="bold" />
-    </LinearLayout>
-
-    <RelativeLayout
-        android:id="@+id/buttonLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/headerLayout">
-
-        <Button
-            android:id="@+id/recordButton"
-            android:layout_width="150dp"
-            android:layout_height="150dp"
-            android:background="@drawable/circle_button"
-            android:text="RECORD"
-            android:textColor="@color/white"
-            android:textSize="18sp"
-            android:visibility="visible"/>
-
-        <Button
-            android:id="@+id/retryButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/rounded_button_green"
-            android:text="Retry"
-            android:textColor="@color/white"
-            android:textSize="16sp"
-            android:layout_below="@id/recordButton"
-            android:layout_centerHorizontal="true"
-            android:visibility="gone"
-            android:layout_marginTop="16dp"/>
-    </RelativeLayout>
-    
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/waveformLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/headerLayout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
             android:id="@+id/instructionTextView"
@@ -77,34 +24,121 @@
             android:layout_height="wrap_content"
             android:text="Place Digital Stethoscope around Trachea"
             android:textAlignment="center"
-            android:textSize="18sp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            />
+            android:textColor="@color/white"
+            android:textSize="18sp" />
+    </LinearLayout>
 
-        <View
-            android:id="@+id/waveformView"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_marginTop="8dp"
-            android:background="@color/gray"
-            app:layout_constraintTop_toBottomOf="@id/instructionTextView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-        
-         <TextView
-            android:id="@+id/resultTextView"
+    <!-- Main Content -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout"
+        app:layout_constraintBottom_toTopOf="@id/footerLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="16dp"
+         >
+        <!-- Person Illustration with Trachea Indicator -->
+        <RelativeLayout android:id="@+id/personIllustrationLayout"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp">
+
+            <LinearLayout android:layout_width="160dp" android:layout_height="256dp"
+                android:background="@drawable/person_illustration_background"
+                android:gravity="center" android:orientation="vertical">
+
+                <!-- Head -->
+                <View android:layout_width="96dp" android:layout_height="96dp"
+                    android:layout_marginTop="8dp" android:background="@drawable/head_border" />
+                <!-- Body -->
+                <View android:layout_width="64dp" android:layout_height="128dp"
+                    android:background="@drawable/body_border" />
+            </LinearLayout>
+            <!-- Trachea Indicator -->
+            <View android:layout_width="32dp" android:layout_height="32dp"
+                android:layout_centerHorizontal="true" android:layout_marginTop="128dp"
+                android:background="@drawable/trachea_indicator" />
+        </RelativeLayout>
+
+        <!-- Waveform Visualization -->
+        <LinearLayout android:id="@+id/waveformView"
+            android:layout_width="match_parent" android:layout_height="80dp"
+            android:layout_marginBottom="8dp" android:background="@color/gray"
+            android:gravity="bottom" android:orientation="horizontal"
+            android:padding="2dp" android:visibility="gone"/>
+
+        <!-- Record Button -->
+        <Button android:id="@+id/recordButton"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:background="@drawable/circle_button"
+            android:drawableLeft="@drawable/mic_icon"
+            android:fontFamily="Calibri"
+            android:padding="16dp" android:text="RECORD"
+            android:textColor="@color/white" android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Results -->
+        <androidx.cardview.widget.CardView android:id="@+id/resultCard"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" app:cardCornerRadius="8dp"
+            android:visibility="gone">
+
+            <LinearLayout android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:fontFamily="Calibri"
+                    android:text="Diagnosis Result" android:textAlignment="center"
+                    android:textSize="20sp" android:textStyle="bold" />
+
+                <TextView android:id="@+id/resultTextView"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:fontFamily="Calibri"
+                    android:textAlignment="center" android:textSize="24sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Result Items -->
+        <GridLayout
+            android:id="@+id/resultItemsLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:textAlignment="center"
-            android:textSize="24sp"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@+id/waveformView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-        
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            android:columnCount="2"
+            android:rowCount="3"
+            android:visibility="gone">
+        </GridLayout>
+
+        <!-- Retry Button -->
+        <Button android:id="@+id/retryButton" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="16dp"
+            android:background="@drawable/rounded_button_green"
+            android:drawableLeft="@drawable/retry_icon"
+            android:fontFamily="Calibri" android:padding="16dp" android:text="Retry"
+            android:textColor="@color/white" android:textSize="16sp"
+            android:visibility="gone" />
+    </LinearLayout>
+    </ScrollView>
+
+    <!-- Footer -->
+    <LinearLayout
+        android:id="@+id/footerLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/gray_light"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

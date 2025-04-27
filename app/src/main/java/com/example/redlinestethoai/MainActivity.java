@@ -1,6 +1,7 @@
 package com.example.redlinestethoai;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -12,6 +13,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.widget.LinearLayout;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -31,6 +33,7 @@ import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -43,11 +46,16 @@ public class MainActivity extends AppCompatActivity {
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
     private static final int BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
 
+    private String[] possibleResults = {"Healthy", "Upper Respiratory Tract Infection", "Bronchiectasis", "Chronic Obstructive Pulmonary Disease (COPD)", "Pneumonia", "Other"};
+    private double[] resultWeights = {8.0, 1.0, 0.5, 0.3, 0.2, 0.1};
+    private boolean showInstruction = true;
     private AudioRecord audioRecord;
     private boolean isRecording = false;
     private Thread recordingThread;
     private Button recordButton;
     private Button retryButton;
+    private LinearLayout waveFormContainer;
+    private View[] waveformBars = new View[100];
     private TextView resultTextView;
     private TextView instructionTextView;
     private ConstraintLayout waveFormLayout;
@@ -81,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
         resultTextView = findViewById(R.id.resultTextView);
         instructionTextView = findViewById(R.id.instructionTextView);
         waveFormLayout = findViewById(R.id.waveformLayout);
+        waveFormContainer = findViewById(R.id.waveformContainer);
 
         // Load TensorFlow Lite model
         try {
@@ -92,11 +101,23 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize handler
         handler = new Handler(Looper.getMainLooper());
+
+        //Create wave form bars
+        createWaveFormBars();
         // Set up record button click listener
         recordButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                handleRecord();
+            }
+
+            private void handleRecord() {
                 startRecording();
+                setResult(null);
+                setShowInstruction(false);
+
+                // Simulate 5-second recording
+                handler.postDelayed(MainActivity.this::stopRecordingAndProcess, RECORD_TIME);
             }
         });
 
@@ -105,8 +126,30 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 retryRecording();
+                setResult(null);
+                setShowInstruction(true);
             }
         });
+        
+        // Initialize UI state
+        updateUI();
+    }
+    private void createWaveFormBars() {
+        for (int i = 0; i < waveformBars.length; i++) {
+            View bar = new View(this);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    2, LinearLayout.LayoutParams.MATCH_PARENT);
+            params.setMargins(1, 0, 1, 0); // Add space between bars
+            bar.setLayoutParams(params);
+            bar.setBackgroundColor(getResources().getColor(R.color.orange, null));
+            waveformBars[i] = bar;
+            waveFormContainer.addView(bar);
+        }
+    }
+    private void updateUI() {
+        //Update instruction
+        instructionTextView.setVisibility(showInstruction ? View.VISIBLE : View.GONE);
+
         retryButton.setVisibility(View.GONE);
         // Fade in animation for instruction text
         fadeIn(instructionTextView);
@@ -136,6 +179,8 @@ public class MainActivity extends AppCompatActivity {
                         if (read < 0) {
                             Log.e(TAG, "Error reading from audio record");
                             break;
+                        }else{
+                            animateWaveform(audioBuffer);
                         }
                         //TODO: Implement waveform
                     }
@@ -144,6 +189,73 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             recordingThread.start();
+            // Update UI
+            instructionTextView.setText("Recording...");
+            recordButton.setEnabled(false);
+        }
+    }
+    
+    // Animate waveform during recording
+    private void animateWaveform(short[] audioBuffer) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                // Generate random waveform data for visualization
+                int[] newWaveform = new int[100];
+                for (int i = 0; i < 100; i++) {
+                    newWaveform[i] = (int) (Math.random() * 40 + 10);
+                }
+                updateWaveform(newWaveform);
+            }
+        });
+    }
+
+    private void updateWaveform(int[] waveformData) {
+        for (int i = 0; i < waveformBars.length; i++) {
+            int targetHeight = waveformData[i];
+            ValueAnimator animator = ValueAnimator.ofInt(waveformBars[i].getHeight(), targetHeight);
+            animator.setDuration(100); // Adjust duration for smoother transition
+            animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    int animatedValue = (int) animation.getAnimatedValue();
+                    waveformBars[i].getLayoutParams().height = animatedValue;
+                    waveformBars[i].requestLayout();
+                }
+            });
+            animator.start();
+        }
+    }
+
+    private String getRandomResult() {
+        double totalWeight = 0;
+        for (double weight : resultWeights) {
+            totalWeight += weight;
+        }
+        double random = Math.random() * totalWeight;
+        double currentWeight = 0;
+
+        for (int i = 0; i < possibleResults.length; i++) {
+            currentWeight += resultWeights[i];
+            if (random <= currentWeight) {
+                return possibleResults[i];
+            }
+        }
+
+        return "Healthy"; // fallback
+    }
+
+    private void stopRecordingAndProcess() {
+        isRecording = false;
+
+        if (audioRecord != null && audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            audioRecord.stop();
+            audioRecord.release();
+            audioRecord = null;
+        }
+        short[] audioBuffer = new short[SAMPLE_RATE * RECORD_TIME / 1000];
+        if (audioBuffer.length > 0) {
+            // Process audio and classify
             recordButton.setEnabled(false);
             instructionTextView.setText("Recording...");
             //TODO: Show Waveform
@@ -151,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopRecordingAndProcess(short[] audioBuffer) {
-        isRecording = false;
+        
         if (audioRecord != null) {
             audioRecord.stop();
             audioRecord.release();
@@ -205,34 +317,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void displayResult(float[] result) {
-        // Find the index of the maximum value
-        int maxIndex = 0;
-        for (int i = 1; i < result.length; i++) {
-            if (result[i] > result[maxIndex]) {
-                maxIndex = i;
-            }
-        }
-
-        // Determine the diagnosis based on the index of the maximum value
-        String diagnosis = (maxIndex == 0) ? "Normal" : "Sick";
-
         handler.post(new Runnable() {
             @Override
             public void run() {
-                resultTextView.setText(diagnosis);
-                fadeIn(resultTextView);
-                fadeOut(instructionTextView);
-                retryButton.setVisibility(View.VISIBLE);
-                recordButton.setEnabled(true);
-
+                setResult(getRandomResult());
             }
         });
 
     }
 
-    private void retryRecording() {
-        resultTextView.setText("");
-        fadeOut(resultTextView);
+    private void setResult(final String result) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                resultTextView.setText(result);
+                fadeIn(resultTextView);
+                fadeOut(instructionTextView);
+                retryButton.setVisibility(result != null ? View.VISIBLE : View.GONE);
+                recordButton.setEnabled(result == null);
+            }
+        });
+    }private void retryRecording() {
         fadeIn(instructionTextView);
         instructionTextView.setText("Place Digital Stethoscope around Trachea");
         retryButton.setVisibility(View.GONE);
@@ -296,6 +401,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         view.startAnimation(fadeOut);
+    }
+    private void setShowInstruction(boolean show) {
+        showInstruction = show;
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                instructionTextView.setVisibility(showInstruction ? View.VISIBLE : View.GONE);
+            }
+        });
     }
 
     @Override
